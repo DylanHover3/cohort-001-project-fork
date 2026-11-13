@@ -7,7 +7,7 @@ A course platform where learners buy courses from instructors and can ask for th
 ### Refunds
 
 **Refund Request**:
-A learner's ask to get their money back for a Purchase. It is Requested until someone reviews it, then becomes Approved or Declined. An Approved Refund Request returns the Refundable Amount and ends the learner's access to the course.
+A learner's ask to get their money back for a Purchase. It is Requested until an admin reviews it, then becomes Approved or Declined. The learner keeps their access while it is Requested. An Approved Refund Request returns the Refundable Amount and ends the access that Purchase granted: the learner's own access for an individual Purchase, or the unclaimed seats for a team Purchase. Their progress in the course is kept; when their own access ends, their rating and comments on the course are removed. Approval is final.
 _Avoid_: Reversal, Chargeback, Cancellation, Refund (on its own)
 
 **Requested** / **Approved** / **Declined**:

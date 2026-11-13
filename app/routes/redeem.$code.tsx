@@ -12,7 +12,11 @@ import { Ticket, AlertCircle, CheckCircle2, Globe } from "lucide-react";
 import { data } from "react-router";
 import { db } from "~/db";
 import { purchases, coupons, courses, enrollments } from "~/db/schema";
+import { isPurchaseRefunded } from "~/lib/refunds.server";
 import { eq, and } from "drizzle-orm";
+
+const REFUNDED_COUPON_MESSAGE =
+  "This coupon can no longer be redeemed because its purchase was refunded.";
 
 function getCourseById(id: number) {
   return db.select().from(courses).where(eq(courses.id, id)).get();
@@ -50,6 +54,10 @@ function redeemCoupon(
 
   if (coupon.redeemedByUserId !== null) {
     return { ok: false, error: "Coupon has already been redeemed" };
+  }
+
+  if (isPurchaseRefunded(coupon.purchaseId)) {
+    return { ok: false, error: REFUNDED_COUPON_MESSAGE };
   }
 
   const existingEnrollment = db
@@ -120,6 +128,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const coupon = getCouponByCode(code);
   if (!coupon) {
     throw data("Coupon not found.", { status: 404 });
+  }
+
+  if (coupon.redeemedByUserId === null && isPurchaseRefunded(coupon.purchaseId)) {
+    throw data(REFUNDED_COUPON_MESSAGE, { status: 410 });
   }
 
   const currentUserId = await getCurrentUserId(request);

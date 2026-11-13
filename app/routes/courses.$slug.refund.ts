@@ -6,17 +6,18 @@ import { db } from "~/db";
 import {
   courses,
   coupons,
-  lessons,
-  modules,
   purchases,
   refunds,
   users,
-  videoWatchEvents,
   RefundStatus,
 } from "~/db/schema";
-import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { parseFormData, parseParams } from "~/lib/validation";
 import { formatPrice } from "~/lib/utils";
+import {
+  getProgressSincePurchase,
+  isPurchaseRefunded,
+} from "~/lib/refunds.server";
 
 const REFUND_WINDOW_DAYS = 14;
 const MAX_WATCHED_HOURS = 2;
@@ -44,17 +45,6 @@ function getLatestPurchase(userId: number, courseId: number) {
     .where(and(eq(purchases.userId, userId), eq(purchases.courseId, courseId)))
     .orderBy(sql`${purchases.createdAt} desc`)
     .get();
-}
-
-function getLessonIdsForCourse(courseId: number): number[] {
-  const rows = db
-    .select({ id: lessons.id })
-    .from(lessons)
-    .innerJoin(modules, eq(lessons.moduleId, modules.id))
-    .where(eq(modules.courseId, courseId))
-    .all();
-
-  return rows.map((row) => row.id);
 }
 
 function getOpenRefund(purchaseId: number) {
@@ -140,6 +130,10 @@ export async function action({ params, request }: Route.ActionArgs) {
     throw data("You have not bought this course.", { status: 403 });
   }
 
+  if (isPurchaseRefunded(purchase.id)) {
+    throw data("This purchase has already been refunded.", { status: 403 });
+  }
+
   if (getOpenRefund(purchase.id)) {
     throw data("You already have a refund request open on this purchase.", {
       status: 409,
@@ -169,29 +163,13 @@ export async function action({ params, request }: Route.ActionArgs) {
     });
   }
 
-  const courseLessonIds = getLessonIdsForCourse(course.id);
-
-  let watchedSeconds = 0;
-  if (courseLessonIds.length > 0) {
-    const furthestPerLesson = db
-      .select({
-        furthest: sql<number>`max(${videoWatchEvents.positionSeconds})`,
-      })
-      .from(videoWatchEvents)
-      .where(
-        and(
-          eq(videoWatchEvents.userId, currentUserId),
-          inArray(videoWatchEvents.lessonId, courseLessonIds)
-        )
-      )
-      .groupBy(videoWatchEvents.lessonId)
-      .all();
-
-    watchedSeconds = furthestPerLesson.reduce(
-      (total, row) => total + row.furthest,
-      0
-    );
-  }
+  // Only activity since this Purchase counts, so a learner who was refunded
+  // and bought again is not held to their old watch time.
+  const { watchedSeconds } = getProgressSincePurchase(
+    currentUserId,
+    course.id,
+    purchase.createdAt
+  );
 
   if (watchedSeconds >= MAX_WATCHED_HOURS * 60 * 60) {
     throw data("You have watched too much of this course to request a refund.", {

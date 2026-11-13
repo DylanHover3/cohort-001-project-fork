@@ -17,11 +17,10 @@ import {
   purchases,
   coupons,
   refunds,
-  videoWatchEvents,
   LessonProgressStatus,
   RefundStatus,
 } from "~/db/schema";
-import { eq, and, or, sql, inArray, isNotNull } from "drizzle-orm";
+import { eq, and, or, sql, isNotNull } from "drizzle-orm";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
@@ -54,6 +53,7 @@ import {
   getCountryTierInfo,
 } from "~/lib/ppp";
 import { parseFormData } from "~/lib/validation";
+import { getProgressSincePurchase } from "~/lib/refunds.server";
 import { MAX_RATING, MIN_RATING } from "~/lib/ratings";
 import { StarRating, StarRatingInput } from "~/components/star-rating";
 
@@ -392,44 +392,6 @@ function getRequestedRefund(purchaseId: number) {
     .get();
 }
 
-function getCompletedLessonCount(userId: number, lessonIds: number[]) {
-  if (lessonIds.length === 0) return 0;
-
-  const result = db
-    .select({ count: sql<number>`count(*)` })
-    .from(lessonProgress)
-    .where(
-      and(
-        eq(lessonProgress.userId, userId),
-        eq(lessonProgress.status, LessonProgressStatus.Completed),
-        inArray(lessonProgress.lessonId, lessonIds)
-      )
-    )
-    .get();
-
-  return result?.count ?? 0;
-}
-
-function getSecondsWatched(userId: number, lessonIds: number[]) {
-  if (lessonIds.length === 0) return 0;
-
-  const furthestPerLesson = db
-    .select({
-      furthest: sql<number>`max(${videoWatchEvents.positionSeconds})`,
-    })
-    .from(videoWatchEvents)
-    .where(
-      and(
-        eq(videoWatchEvents.userId, userId),
-        inArray(videoWatchEvents.lessonId, lessonIds)
-      )
-    )
-    .groupBy(videoWatchEvents.lessonId)
-    .all();
-
-  return furthestPerLesson.reduce((total, row) => total + row.furthest, 0);
-}
-
 // Compare whole days, not hours — a purchase at 23:00 should still get its
 // full fourteenth day.
 function asDayString(when: Date) {
@@ -459,18 +421,23 @@ function getRefundRequestOffer(userId: number, courseId: number) {
 
   if (!isWithinWindow) return null;
 
-  const lessonIds = getCourseLessonIds(courseId);
+  // Only activity since this Purchase counts, so a learner who was refunded
+  // and bought again is not held to their old progress.
+  const progress = getProgressSincePurchase(
+    userId,
+    courseId,
+    purchase.createdAt
+  );
 
-  if (lessonIds.length > 0) {
-    const completedCount = getCompletedLessonCount(userId, lessonIds);
-    if (completedCount / lessonIds.length >= REFUND_COMPLETION_LIMIT) {
-      return null;
-    }
-  }
-
-  if (getSecondsWatched(userId, lessonIds) >= REFUND_WATCH_LIMIT_SECONDS) {
+  if (
+    progress.totalLessons > 0 &&
+    progress.completedLessons / progress.totalLessons >=
+      REFUND_COMPLETION_LIMIT
+  ) {
     return null;
   }
+
+  if (progress.watchedSeconds >= REFUND_WATCH_LIMIT_SECONDS) return null;
 
   const claimedSeat = db
     .select({ id: coupons.id })
