@@ -2070,6 +2070,48 @@ This course is still in draft while the cluster examples are rewritten against t
 
   console.log(`Created ${countRows(schema.lessonProgress)} lesson progress records.`);
 
+  // ─── Bookmarks and Notes ───
+  // Private to each Student, on Lessons of courses they are enrolled in.
+
+  db.insert(schema.bookmarks)
+    .values([
+      { userId: students[0].id, lessonId: course1LessonIds[3], createdAt: daysAgo(45) },
+      { userId: students[0].id, lessonId: course1LessonIds[12], createdAt: daysAgo(38) },
+      { userId: students[0].id, lessonId: course2LessonIds[5], createdAt: daysAgo(33) },
+      { userId: students[2].id, lessonId: course1LessonIds[1], createdAt: daysAgo(29) },
+    ])
+    .run();
+
+  db.insert(schema.notes)
+    .values([
+      {
+        userId: students[0].id,
+        lessonId: course1LessonIds[3],
+        body: "Come back to this before the quiz — the second example is the one that clicked.",
+        createdAt: daysAgo(45),
+        updatedAt: daysAgo(44),
+      },
+      {
+        userId: students[0].id,
+        lessonId: course2LessonIds[5],
+        body: "Try this against my own side project this weekend.",
+        createdAt: daysAgo(33),
+        updatedAt: daysAgo(33),
+      },
+      {
+        userId: students[2].id,
+        lessonId: course1LessonIds[1],
+        body: "Rewatch from 4:30.\nAsk in the discussion if it still doesn't make sense.",
+        createdAt: daysAgo(29),
+        updatedAt: daysAgo(27),
+      },
+    ])
+    .run();
+
+  console.log(
+    `Created ${countRows(schema.bookmarks)} bookmarks and ${countRows(schema.notes)} notes.`
+  );
+
   // ─── Quiz Attempts ───
 
   // Helper to record a quiz attempt with answers
