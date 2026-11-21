@@ -13,8 +13,12 @@ export function getQuizByLessonId(lessonId: number) {
   return db.select().from(quizzes).where(eq(quizzes.lessonId, lessonId)).get();
 }
 
+export function getQuizById(quizId: number) {
+  return db.select().from(quizzes).where(eq(quizzes.id, quizId)).get();
+}
+
 export function getQuizWithQuestions(quizId: number) {
-  const quiz = db.select().from(quizzes).where(eq(quizzes.id, quizId)).get();
+  const quiz = getQuizById(quizId);
   if (!quiz) return null;
 
   const questions = db
