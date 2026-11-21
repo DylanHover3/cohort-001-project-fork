@@ -83,6 +83,20 @@ describe("describeNoteEditor character count", () => {
   });
 });
 
+describe("describeNoteEditor cleared", () => {
+  it("is cleared when a saved note is emptied", () => {
+    expect(view({ draft: " ", savedBody: "hello" }).cleared).toBe(true);
+  });
+
+  it("is not cleared when there was nothing saved", () => {
+    expect(view({ draft: "" }).cleared).toBe(false);
+  });
+
+  it("is not cleared while the draft has text", () => {
+    expect(view({ draft: "hi", savedBody: "hello" }).cleared).toBe(false);
+  });
+});
+
 describe("describeNoteEditor canSave", () => {
   it("allows saving a changed draft", () => {
     expect(view({ draft: "hello" }).canSave).toBe(true);

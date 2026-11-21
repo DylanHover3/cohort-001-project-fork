@@ -13,6 +13,8 @@ export type NoteEditorView = {
   characterCount: number;
   nearLimit: boolean;
   overLimit: boolean;
+  // A saved note emptied in the editor: the server refuses an empty note.
+  cleared: boolean;
   canSave: boolean;
 };
 
@@ -34,6 +36,7 @@ export function describe(input: NoteEditorInput): NoteEditorView {
     characterCount,
     nearLimit,
     overLimit,
+    cleared: dirty && characterCount === 0,
     canSave: !input.isSaving && dirty && characterCount > 0 && !overLimit,
   };
 }

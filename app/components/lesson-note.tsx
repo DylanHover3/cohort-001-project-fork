@@ -47,26 +47,48 @@ export function LessonNote({
             name="body"
             aria-label="Your notes"
             aria-invalid={view.overLimit || Boolean(error)}
-            aria-describedby="note-character-count"
+            aria-describedby="note-character-count note-cleared-hint"
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              // The error was about the text the user is now changing.
+              if (error) fetcher.reset();
+            }}
             placeholder="Jot down key ideas, questions, or anything you want to remember from this lesson."
             className="min-h-36 resize-y bg-background leading-relaxed"
           />
-          {error && (
-            <p
-              role="alert"
-              className="mt-2 flex items-center gap-1.5 text-sm text-destructive"
-            >
-              <AlertCircle className="size-4 shrink-0" />
-              {error}
-            </p>
-          )}
+          <NoteMessage cleared={view.cleared} error={error} />
         </div>
 
         <NoteFooter view={view} updatedAt={note?.updatedAt} />
       </fetcher.Form>
     </Card>
+  );
+}
+
+function NoteMessage({
+  cleared,
+  error,
+}: {
+  cleared: boolean;
+  error: string | undefined;
+}) {
+  if (error) {
+    return (
+      <p
+        role="alert"
+        className="mt-2 flex items-center gap-1.5 text-sm text-destructive"
+      >
+        <AlertCircle className="size-4 shrink-0" />
+        {error}
+      </p>
+    );
+  }
+  if (!cleared) return null;
+  return (
+    <p id="note-cleared-hint" className="mt-2 text-sm text-muted-foreground">
+      A note can&apos;t be empty. Write something to save it.
+    </p>
   );
 }
 
